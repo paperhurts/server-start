@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod config;
+mod errors;
 mod process;
 
 use config::Config;
@@ -25,8 +26,7 @@ fn main() {
     let config = match Config::load() {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Config error: {}", e);
-            eprintln!("Config path: {}", Config::config_path().display());
+            errors::show_error("Config Error", &format!("{}\n\nPath: {}", e, Config::config_path().display()));
             Config {
                 server: Vec::new(),
             }
@@ -37,18 +37,19 @@ fn main() {
         let config_path = Config::config_path();
         if !config_path.exists() {
             let sample = r#"# Server Start Configuration
-# Add your dev servers here. Each [[server]] block is one process.
+# Uncomment and edit the blocks below. Every block MUST start with [[server]].
+# The name inside the brackets is always "server" — it does NOT change per project.
 
 # [[server]]
 # name = "Frontend"
 # dir = "C:/dev/my-app"
 # cmd = "npm run dev"
-#
+
 # [[server]]
 # name = "Backend API"
 # dir = "C:/dev/my-api"
 # cmd = "cargo run"
-#
+
 # [[server]]
 # name = "Tauri Dev"
 # dir = "C:/dev/my-app"
@@ -56,11 +57,14 @@ fn main() {
 # env = { RUST_LOG = "debug" }
 "#;
             std::fs::write(&config_path, sample).ok();
-            eprintln!(
-                "No servers configured. Sample config created at: {}",
-                config_path.display()
-            );
         }
+        errors::show_error(
+            "No Servers Configured",
+            &format!(
+                "No servers found in config. Add [[server]] blocks to:\n\n{}",
+                Config::config_path().display()
+            ),
+        );
     }
 
     let manager = new_shared(config.server);
@@ -88,7 +92,7 @@ impl App {
 
     fn build_menu(&self) -> Menu {
         let menu = Menu::new();
-        let mgr = self.manager.lock().unwrap();
+        let mut mgr = self.manager.lock().unwrap();
 
         // Individual server controls
         for id in 0..self.server_count {
@@ -152,19 +156,23 @@ impl App {
     }
 
     fn rebuild_tray(&mut self) {
-        self._tray.take();
-
         let menu = self.build_menu();
         let icon = create_icon();
 
-        let tray = TrayIconBuilder::new()
+        match TrayIconBuilder::new()
             .with_menu(Box::new(menu))
             .with_tooltip("Server Start")
             .with_icon(icon)
             .build()
-            .expect("Failed to build tray icon");
-
-        self._tray = Some(tray);
+        {
+            Ok(tray) => {
+                self._tray = Some(tray);
+            }
+            Err(e) => {
+                // Keep the old tray icon rather than crashing
+                errors::show_error("Tray Error", &format!("Failed to rebuild tray icon: {}", e));
+            }
+        }
     }
 
     fn handle_menu_event(&mut self, event: MenuEvent, event_loop: &ActiveEventLoop) {
@@ -192,8 +200,9 @@ impl App {
             }
             MENU_ID_OPEN_CONFIG => {
                 let path = Config::config_path();
+                let path_str = path.to_string_lossy();
                 let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", "", path.to_str().unwrap_or("")])
+                    .args(["/c", "start", "", &path_str])
                     .spawn();
             }
             MENU_ID_RELOAD_CONFIG => {
@@ -206,7 +215,7 @@ impl App {
                         self.rebuild_tray();
                     }
                     Err(e) => {
-                        eprintln!("Failed to reload config: {}", e);
+                        errors::show_error("Config Reload Failed", &e);
                     }
                 }
             }
@@ -214,21 +223,21 @@ impl App {
                 if let Some(id_str) = other.strip_prefix("start_") {
                     if let Ok(server_id) = id_str.parse::<usize>() {
                         if let Err(e) = self.manager.lock().unwrap().start(server_id) {
-                            eprintln!("{}", e);
+                            errors::show_error("Start Failed", &e);
                         }
                         self.rebuild_tray();
                     }
                 } else if let Some(id_str) = other.strip_prefix("stop_") {
                     if let Ok(server_id) = id_str.parse::<usize>() {
                         if let Err(e) = self.manager.lock().unwrap().stop(server_id) {
-                            eprintln!("{}", e);
+                            errors::show_error("Stop Failed", &e);
                         }
                         self.rebuild_tray();
                     }
                 } else if let Some(id_str) = other.strip_prefix("restart_") {
                     if let Ok(server_id) = id_str.parse::<usize>() {
                         if let Err(e) = self.manager.lock().unwrap().restart(server_id) {
-                            eprintln!("{}", e);
+                            errors::show_error("Restart Failed", &e);
                         }
                         self.rebuild_tray();
                     }
@@ -283,7 +292,7 @@ fn create_icon() -> Icon {
                 rgba[idx + 2] = (80.0 * brightness) as u8;
                 rgba[idx + 3] = 255;
             } else if dist <= radius + 1.0 {
-                let alpha = (1.0 - (dist - radius)) * 255.0;
+                let alpha = ((1.0 - (dist - radius)) * 255.0).clamp(0.0, 255.0);
                 rgba[idx] = 50;
                 rgba[idx + 1] = 200;
                 rgba[idx + 2] = 80;
