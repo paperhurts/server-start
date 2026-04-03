@@ -6,9 +6,10 @@ A lightweight Windows system tray app for managing dev servers across multiple p
 
 - **Tray menu** with per-server Start / Stop / Restart controls
 - **Output modes** — `terminal` (PowerShell windows with logs), `logfile` (hidden + log file), or `hidden` (no output)
+- **Mode toggle** — switch any server's output mode on the fly from the tray menu
 - **Bulk actions** — Start All, Stop All, Restart All
 - **Restart Terminals** — kills all PowerShell/pwsh/Windows Terminal sessions and opens a fresh one (asks for confirmation first)
-- **Hot-reload config** — edit your config and reload without restarting the app
+- **Hot-reload config** — edit your config and reload without restarting the app (running servers with unchanged config stay running)
 - **Open Config** — jump straight to your config file from the tray menu
 - **Error dialogs** — config errors and server failures show Windows message boxes (no silent failures)
 - **Crash detection** — automatically detects when a server exits and updates the menu status
@@ -78,13 +79,13 @@ Each `[[server]]` block defines one process:
 | `logfile`  | Server runs hidden. Output is written to `%APPDATA%/server-start/logs/<name>.log`. A "View Log" option appears in the server's tray submenu. |
 | `hidden`   | Server runs hidden with no output captured. Use for servers where you don't need logs. |
 
-Set a global default with `output = "terminal"` at the top of your config, and override per-server with the `output` field inside a `[[server]]` block.
+Set a global default with `output = "terminal"` at the top of your config, and override per-server with the `output` field inside a `[[server]]` block. You can also switch modes on the fly from each server's tray submenu — no config editing needed.
 
 ## Usage
 
 Right-click the tray icon to see your servers and controls:
 
-- Each server has a submenu with **Start**, **Stop**, and **Restart**
+- Each server has a submenu with **Start**, **Stop**, **Restart**, and **Mode** (Terminal/Logfile/Hidden)
 - Logfile-mode servers also have a **View Log** option
 - Status shows as `[running]` or `[stopped]` (auto-detects crashes)
 - **Start/Stop/Restart All Servers** for bulk control
