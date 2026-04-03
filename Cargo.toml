@@ -13,7 +13,7 @@ dirs = "6"
 
 # Hide the console window on Windows release builds
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.58", features = ["Win32_System_Console"] }
+windows = { version = "0.58", features = ["Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
 
 [[bin]]
 name = "server-start"
