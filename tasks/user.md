@@ -1,52 +1,47 @@
-# Testing: Code Review Fixes (Issues #1-#8)
+# Testing: Output Modes + Synthwave Icon (Issues #10, #11)
 
-## What changed
-- **Error dialogs**: All errors now show Windows MessageBox popups instead of invisible `eprintln!`
-- **Process health**: Menu now detects crashed/exited servers and shows `[stopped]` correctly
-- **Stop/restart reliability**: App waits up to 2s for processes to actually exit before restarting (prevents port conflicts)
-- **Restart Terminals**: Now shows a YES/NO confirmation dialog before killing anything. Falls back to `cmd.exe` if Windows Terminal isn't installed.
-- **Server stdio**: Spawned processes redirect stdout/stderr to null (prevents blocking on invalid handles)
-- **Tray icon**: No longer panics if rebuild fails; icon alpha anti-aliasing fixed
-- **Open Config**: Handles non-UTF-8 paths correctly
-- **Server ordering**: Start/stop order now matches config file order (was random)
+## What Changed
+1. **Output modes** — three modes: `terminal` (PowerShell windows, default), `logfile` (hidden + log file), `hidden` (no output)
+2. **Global + per-server config** — set `output = "logfile"` globally or per `[[server]]` block
+3. **View Log menu item** — logfile-mode servers get a "View Log" option in their submenu
+4. **Synthwave icon** — dark purple circle with cyan/magenta gradient glow and `~/` text
 
-## How to test
+## How to Test
 
-### 1. Run the exe
+### 1. Launch
 ```
 target\release\server-start.exe
 ```
-(Double-click or run from explorer — it's a tray app, no console window)
 
-### 2. Test error dialog (config parse error)
-- Open config: right-click tray → Open Config
-- Break the TOML syntax (e.g., add `!!!` somewhere)
-- Right-click tray → Reload Config
-- **Expected**: A Windows error dialog pops up saying "Config Reload Failed"
+### 2. Check the icon
+- Look at the system tray — should be a dark circle with cyan/magenta glow and ~/ in the center
+- Check it looks OK on your taskbar
 
-### 3. Test server start/stop
-- Fix config, add a test server:
+### 3. Test terminal mode (default)
+- Start a server with no `output` setting → PowerShell window with named title and visible logs
+
+### 4. Test logfile mode
+- Add `output = "logfile"` to one server in config, e.g.:
   ```toml
   [[server]]
-  name = "Test"
-  dir = "C:/"
-  cmd = "ping -t localhost"
+  name = "Frontend"
+  dir = "C:/dev/reader/frontend"
+  cmd = "npm run dev"
+  output = "logfile"
   ```
-- Reload Config
-- Start the "Test" server from the tray menu
-- **Expected**: Shows `[running]` in menu
+- Reload Config → Start that server
+- **Expected:** No window appears, server runs hidden
+- Check the menu — should have a "View Log" option in the server's submenu
+- Click "View Log" — should open the log file
+- Check `%APPDATA%/server-start/logs/Frontend.log` has content
 
-### 4. Test crash detection
-- While "Test" is running, open Task Manager and kill the `ping` process
-- Right-click the tray icon again
-- **Expected**: Shows `[stopped]` (not stuck on `[running]`)
+### 5. Test hidden mode
+- Set `output = "hidden"` on a server → Start it
+- **Expected:** No window, no log file, server runs silently
 
-### 5. Test Restart Terminals
-- Right-click tray → Restart Terminals
-- **Expected**: A YES/NO confirmation dialog appears BEFORE anything happens
-- Click No → nothing happens
-- Click Yes → terminals close, fresh one opens
+### 6. Test global default
+- Add `output = "logfile"` at the top of config (before any [[server]])
+- **Expected:** All servers default to logfile mode unless they have their own `output` override
 
-### 6. Test restart reliability  
-- Start a server, then Restart it from the menu
-- **Expected**: No "port already in use" errors, clean restart
+### 7. Quit behavior
+- With servers running, Quit → should ask "Stop all running servers?"
