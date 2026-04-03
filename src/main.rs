@@ -180,7 +180,18 @@ impl App {
 
         match id {
             MENU_ID_QUIT => {
-                self.manager.lock().unwrap().stop_all();
+                let has_running = {
+                    let mut mgr = self.manager.lock().unwrap();
+                    (0..mgr.server_count()).any(|id| mgr.is_running(id))
+                };
+                if has_running
+                    && errors::confirm(
+                        "Quit Server Start",
+                        "Stop all running servers before quitting?",
+                    )
+                {
+                    self.manager.lock().unwrap().stop_all();
+                }
                 event_loop.exit();
             }
             MENU_ID_START_ALL => {
@@ -208,6 +219,15 @@ impl App {
             MENU_ID_RELOAD_CONFIG => {
                 match Config::load() {
                     Ok(config) => {
+                        if config.server.is_empty() {
+                            errors::show_error(
+                                "No Servers Configured",
+                                &format!(
+                                    "No servers found in config. Add [[server]] blocks to:\n\n{}",
+                                    Config::config_path().display()
+                                ),
+                            );
+                        }
                         self.manager.lock().unwrap().stop_all();
                         let new_manager = new_shared(config.server.clone());
                         self.server_count = config.server.len();
