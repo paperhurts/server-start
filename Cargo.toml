@@ -1,0 +1,20 @@
+[package]
+name = "server-start"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tray-icon = "0.19"
+winit = "0.30"
+image = "0.25"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+dirs = "6"
+
+# Hide the console window on Windows release builds
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_System_Console"] }
+
+[[bin]]
+name = "server-start"
+path = "src/main.rs"
