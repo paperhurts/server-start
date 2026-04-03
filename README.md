@@ -6,9 +6,11 @@ A lightweight Windows system tray app for managing dev servers across multiple p
 
 - **Tray menu** with per-server Start / Stop / Restart controls
 - **Bulk actions** — Start All, Stop All, Restart All
-- **Restart Terminals** — kills all PowerShell/pwsh/Windows Terminal sessions and opens a fresh one (great after installing new CLI tools)
+- **Restart Terminals** — kills all PowerShell/pwsh/Windows Terminal sessions and opens a fresh one (asks for confirmation first)
 - **Hot-reload config** — edit your config and reload without restarting the app
 - **Open Config** — jump straight to your config file from the tray menu
+- **Error dialogs** — config errors and server failures show Windows message boxes (no silent failures)
+- **Crash detection** — automatically detects when a server exits and updates the menu status
 - **Zero runtime dependencies** — single `.exe`, no Node/Python/etc. required
 
 ## Install
@@ -67,11 +69,13 @@ Each `[[server]]` block defines one process:
 Right-click the green tray icon to see your servers and controls:
 
 - Each server has a submenu with **Start**, **Stop**, and **Restart**
-- Status shows as `[running]` or `[stopped]`
+- Status shows as `[running]` or `[stopped]` (auto-detects crashes)
 - **Start/Stop/Restart All Servers** for bulk control
-- **Restart Terminals** to kill and reopen all terminal windows
+- **Restart Terminals** to kill and reopen all terminal windows (shows confirmation first — this kills *all* open terminals, not just ones managed by the app)
 - **Open Config** to edit your server list
 - **Reload Config** to pick up changes without restarting
+
+> **Note:** Servers are started via `cmd /c`, so stopping/restarting a server kills its entire process tree. If you're running Claude or another tool inside a terminal that a configured server spawned, it will be killed when that server is stopped.
 
 ## Built With
 
