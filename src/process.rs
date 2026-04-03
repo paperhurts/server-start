@@ -122,11 +122,8 @@ impl ProcessManager {
     }
 }
 
-impl Drop for ProcessManager {
-    fn drop(&mut self) {
-        self.stop_all();
-    }
-}
+// No Drop impl — the user chooses whether to stop servers on quit.
+// If they click "No", servers keep running independently.
 
 pub type SharedProcessManager = Arc<Mutex<ProcessManager>>;
 
