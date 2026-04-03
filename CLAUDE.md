@@ -1,7 +1,7 @@
 # CLAUDE
 
 ## About
-Windows system tray app for managing dev servers. Right-click the tray icon to start/stop/restart servers defined in a TOML config, or restart all terminals.
+Windows system tray app for managing dev servers. Right-click the tray icon to start/stop/restart servers defined in a TOML config. Supports three output modes (terminal/logfile/hidden), switchable from the tray menu. Config hot-reload preserves running servers.
 
 ## Build
 ```
