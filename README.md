@@ -7,6 +7,7 @@ A lightweight Windows system tray app for managing dev servers across multiple p
 - **Tray menu** with per-server Start / Stop / Restart controls
 - **Output modes** — `terminal` (PowerShell windows with logs), `logfile` (hidden + log file), or `hidden` (no output)
 - **Mode toggle** — switch any server's output mode on the fly from the tray menu
+- **Server groups** — group related servers (e.g., frontend + backend) and start/stop/restart them together
 - **Bulk actions** — Start All, Stop All, Restart All
 - **Restart Terminals** — kills all PowerShell/pwsh/Windows Terminal sessions and opens a fresh one (asks for confirmation first)
 - **Hot-reload config** — edit your config and reload without restarting the app (running servers with unchanged config stay running)
@@ -71,6 +72,29 @@ Each `[[server]]` block defines one process:
 | `env`    | no       | Extra environment variables to set                |
 | `output` | no       | `"terminal"`, `"logfile"`, or `"hidden"` (overrides global) |
 
+### Groups
+
+Group related servers to start/stop/restart them together without affecting all servers:
+
+```toml
+[[group]]
+name = "Reader"
+servers = ["Reader Frontend", "Reader Backend"]
+
+[[group]]
+name = "Auth Stack"
+servers = ["Auth API", "Redis"]
+```
+
+Each `[[group]]` block defines a named collection:
+
+| Field     | Required | Description                                                |
+|-----------|----------|------------------------------------------------------------|
+| `name`    | yes      | Display name in the tray menu                              |
+| `servers` | yes      | List of server names (must match `name` in `[[server]]` blocks) |
+
+Groups appear in the tray menu between individual servers and the bulk actions. Each group shows a running count (e.g., `Reader [1/2]`) and has **Start Group**, **Stop Group**, and **Restart Group** actions.
+
 ### Output Modes
 
 | Mode       | Behavior                                                                 |
@@ -88,6 +112,7 @@ Right-click the tray icon to see your servers and controls:
 - Each server has a submenu with **Start**, **Stop**, **Restart**, and **Mode** (Terminal/Logfile/Hidden)
 - Logfile-mode servers also have a **View Log** option
 - Status shows as `[running]` or `[stopped]` (auto-detects crashes)
+- **Groups** show running count and have **Start/Stop/Restart Group** actions
 - **Start/Stop/Restart All Servers** for bulk control
 - **Restart Terminals** to kill and reopen all terminal windows (shows confirmation first — this kills *all* open terminals, not just ones managed by the app)
 - **Open Config** to edit your server list
