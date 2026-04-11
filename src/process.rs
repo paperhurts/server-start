@@ -150,6 +150,47 @@ impl ProcessManager {
         self.processes.get(id).map(|p| p.config.name.as_str())
     }
 
+    /// Reverse lookup: find server index by name.
+    pub fn server_id_by_name(&self, name: &str) -> Option<usize> {
+        self.processes.iter().position(|p| p.config.name == name)
+    }
+
+    /// Start all servers in a group by name. Skips unknown names, collects errors.
+    pub fn start_group(&mut self, server_names: &[String]) {
+        let mut failures = Vec::new();
+        for name in server_names {
+            if let Some(id) = self.server_id_by_name(name) {
+                if let Err(e) = self.start(id) {
+                    failures.push(e);
+                }
+            }
+        }
+        if !failures.is_empty() {
+            errors::show_error("Start Group Failed", &failures.join("\n"));
+        }
+    }
+
+    /// Stop all servers in a group by name.
+    pub fn stop_group(&mut self, server_names: &[String]) {
+        let mut failures = Vec::new();
+        for name in server_names {
+            if let Some(id) = self.server_id_by_name(name) {
+                if let Err(e) = self.stop(id) {
+                    failures.push(e);
+                }
+            }
+        }
+        if !failures.is_empty() {
+            errors::show_error("Stop Group Failed", &failures.join("\n"));
+        }
+    }
+
+    /// Restart all servers in a group by name.
+    pub fn restart_group(&mut self, server_names: &[String]) {
+        self.stop_group(server_names);
+        self.start_group(server_names);
+    }
+
     /// Reload with a new config, preserving running servers whose config hasn't changed.
     /// - Unchanged servers: keep running, transfer child handle
     /// - Changed servers: stop, update config (left stopped)

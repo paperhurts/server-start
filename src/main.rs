@@ -5,7 +5,7 @@ mod config;
 mod errors;
 mod process;
 
-use config::{Config, OutputMode};
+use config::{Config, GroupConfig, OutputMode, ServerConfig};
 use process::{new_shared, SharedProcessManager};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
@@ -22,6 +22,32 @@ const MENU_ID_RELOAD_CONFIG: &str = "reload_config";
 const MENU_ID_OPEN_CONFIG: &str = "open_config";
 const MENU_ID_QUIT: &str = "quit";
 
+fn warn_unmatched_group_servers(groups: &[GroupConfig], servers: &[ServerConfig]) {
+    let server_names: Vec<&str> = servers.iter().map(|s| s.name.as_str()).collect();
+    let mut warnings = Vec::new();
+
+    for group in groups {
+        let unmatched: Vec<&str> = group
+            .servers
+            .iter()
+            .filter(|name| !server_names.contains(&name.as_str()))
+            .map(|s| s.as_str())
+            .collect();
+
+        if !unmatched.is_empty() {
+            warnings.push(format!(
+                "Group \"{}\" references unknown servers: {}",
+                group.name,
+                unmatched.join(", ")
+            ));
+        }
+    }
+
+    if !warnings.is_empty() {
+        errors::show_error("Group Config Warning", &warnings.join("\n\n"));
+    }
+}
+
 fn main() {
     let config = match Config::load() {
         Ok(c) => c,
@@ -33,6 +59,7 @@ fn main() {
             Config {
                 output: OutputMode::default(),
                 server: Vec::new(),
+                group: Vec::new(),
             }
         }
     };
@@ -69,6 +96,11 @@ fn main() {
 # cmd = "cargo tauri dev"
 # env = { RUST_LOG = "debug", RUST_BACKTRACE = "1" }
 
+# ─── Groups: start/stop/restart multiple servers at once ───
+# [[group]]
+# name = "Reader"
+# servers = ["Frontend", "Backend API"]
+
 # ─── Common env vars ───
 # env = { RUST_LOG = "debug" }
 # env = { RUST_LOG = "debug", RUST_BACKTRACE = "1" }
@@ -86,9 +118,11 @@ fn main() {
         );
     }
 
+    warn_unmatched_group_servers(&config.group, &config.server);
+
     let manager = new_shared(config.server, config.output);
     let event_loop = EventLoop::new().expect("Failed to create event loop");
-    let mut app = App::new(manager);
+    let mut app = App::new(manager, config.group);
 
     event_loop.run_app(&mut app).expect("Event loop failed");
 }
@@ -97,15 +131,17 @@ struct App {
     manager: SharedProcessManager,
     _tray: Option<TrayIcon>,
     server_count: usize,
+    groups: Vec<GroupConfig>,
 }
 
 impl App {
-    fn new(manager: SharedProcessManager) -> Self {
+    fn new(manager: SharedProcessManager, groups: Vec<GroupConfig>) -> Self {
         let server_count = manager.lock().unwrap().server_count();
         App {
             manager,
             _tray: None,
             server_count,
+            groups,
         }
     }
 
@@ -169,6 +205,41 @@ impl App {
         }
 
         if self.server_count > 0 {
+            menu.append(&PredefinedMenuItem::separator()).ok();
+        }
+
+        // Group controls
+        if !self.groups.is_empty() {
+            for (gidx, group) in self.groups.iter().enumerate() {
+                let resolved: Vec<_> = group.servers.iter()
+                    .filter(|name| mgr.server_id_by_name(name).is_some())
+                    .collect();
+                let total = resolved.len();
+                let running = resolved.iter().filter(|name| {
+                    mgr.server_id_by_name(name)
+                        .map(|id| mgr.is_running(id))
+                        .unwrap_or(false)
+                }).count();
+
+                let label = format!("{} [{}/{}]", group.name, running, total);
+                let submenu = Submenu::new(label, true);
+
+                let start = MenuItem::with_id(
+                    format!("grp_start_{}", gidx), "Start Group", true, None,
+                );
+                let stop = MenuItem::with_id(
+                    format!("grp_stop_{}", gidx), "Stop Group", true, None,
+                );
+                let restart = MenuItem::with_id(
+                    format!("grp_restart_{}", gidx), "Restart Group", true, None,
+                );
+
+                submenu.append(&start).ok();
+                submenu.append(&stop).ok();
+                submenu.append(&restart).ok();
+                menu.append(&submenu).ok();
+            }
+
             menu.append(&PredefinedMenuItem::separator()).ok();
         }
 
@@ -281,11 +352,13 @@ impl App {
                                 ),
                             );
                         }
+                        warn_unmatched_group_servers(&config.group, &config.server);
                         self.manager
                             .lock()
                             .unwrap()
                             .reload(config.server.clone(), config.output.clone());
                         self.server_count = config.server.len();
+                        self.groups = config.group;
                         self.rebuild_tray();
                     }
                     Err(e) => {
@@ -335,6 +408,27 @@ impl App {
                             errors::show_error("Mode Change Failed", &e);
                         }
                         self.rebuild_tray();
+                    }
+                } else if let Some(id_str) = other.strip_prefix("grp_start_") {
+                    if let Ok(gidx) = id_str.parse::<usize>() {
+                        if let Some(group) = self.groups.get(gidx) {
+                            self.manager.lock().unwrap().start_group(&group.servers);
+                            self.rebuild_tray();
+                        }
+                    }
+                } else if let Some(id_str) = other.strip_prefix("grp_stop_") {
+                    if let Ok(gidx) = id_str.parse::<usize>() {
+                        if let Some(group) = self.groups.get(gidx) {
+                            self.manager.lock().unwrap().stop_group(&group.servers);
+                            self.rebuild_tray();
+                        }
+                    }
+                } else if let Some(id_str) = other.strip_prefix("grp_restart_") {
+                    if let Ok(gidx) = id_str.parse::<usize>() {
+                        if let Some(group) = self.groups.get(gidx) {
+                            self.manager.lock().unwrap().restart_group(&group.servers);
+                            self.rebuild_tray();
+                        }
                     }
                 } else if let Some(id_str) = other.strip_prefix("viewlog_") {
                     if let Ok(server_id) = id_str.parse::<usize>() {
