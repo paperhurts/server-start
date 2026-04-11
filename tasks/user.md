@@ -1,47 +1,52 @@
-# Testing: Output Modes + Synthwave Icon (Issues #10, #11)
+# Testing: Server Groups (Issue #16)
 
 ## What Changed
-1. **Output modes** — three modes: `terminal` (PowerShell windows, default), `logfile` (hidden + log file), `hidden` (no output)
-2. **Global + per-server config** — set `output = "logfile"` globally or per `[[server]]` block
-3. **View Log menu item** — logfile-mode servers get a "View Log" option in their submenu
-4. **Synthwave icon** — dark purple circle with cyan/magenta gradient glow and `~/` text
+Server groups let you start/stop/restart a named subset of servers at once. Groups appear in the tray menu between individual servers and the bulk "Start All" actions.
 
 ## How to Test
 
-### 1. Launch
+### 1. Build & Launch
 ```
-target\release\server-start.exe
+cargo build && target\debug\server-start.exe
 ```
+(Or kill the running release exe first and `cargo build --release`)
 
-### 2. Check the icon
-- Look at the system tray — should be a dark circle with cyan/magenta glow and ~/ in the center
-- Check it looks OK on your taskbar
+### 2. Add groups to config
+Open Config from the tray menu, add groups that reference your existing servers:
+```toml
+[[group]]
+name = "Reader"
+servers = ["Reader Frontend", "Reader Backend"]
+```
+Server names in `servers` must exactly match the `name` field in your `[[server]]` blocks.
 
-### 3. Test terminal mode (default)
-- Start a server with no `output` setting → PowerShell window with named title and visible logs
+### 3. Reload Config
+Click "Reload Config" in the tray menu.
 
-### 4. Test logfile mode
-- Add `output = "logfile"` to one server in config, e.g.:
-  ```toml
-  [[server]]
-  name = "Frontend"
-  dir = "C:/dev/reader/frontend"
-  cmd = "npm run dev"
-  output = "logfile"
-  ```
-- Reload Config → Start that server
-- **Expected:** No window appears, server runs hidden
-- Check the menu — should have a "View Log" option in the server's submenu
-- Click "View Log" — should open the log file
-- Check `%APPDATA%/server-start/logs/Frontend.log` has content
+### 4. Verify group menu
+- Right-click the tray icon
+- You should see a "Reader [0/2]" submenu between your individual servers and "Start All Servers"
+- The submenu should have: Start Group, Stop Group, Restart Group
 
-### 5. Test hidden mode
-- Set `output = "hidden"` on a server → Start it
-- **Expected:** No window, no log file, server runs silently
+### 5. Test Start Group
+- Click "Start Group" inside the Reader submenu
+- **Expected:** Only the servers in that group start, others stay stopped
+- Menu should update to "Reader [2/2]"
 
-### 6. Test global default
-- Add `output = "logfile"` at the top of config (before any [[server]])
-- **Expected:** All servers default to logfile mode unless they have their own `output` override
+### 6. Test Stop Group
+- Click "Stop Group"
+- **Expected:** Only the group's servers stop
+- Menu should update to "Reader [0/2]"
 
-### 7. Quit behavior
-- With servers running, Quit → should ask "Stop all running servers?"
+### 7. Test Restart Group
+- Start the group, then click "Restart Group"
+- **Expected:** Servers stop then start, still running after
+
+### 8. Verify other servers unaffected
+- Start some servers NOT in the group
+- Restart the group
+- **Expected:** Non-group servers keep running, unaffected
+
+### 9. Config reload preserves groups
+- Edit config to add/remove a group, Reload Config
+- **Expected:** Menu updates to reflect the new group definitions
