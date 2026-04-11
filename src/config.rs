@@ -23,6 +23,16 @@ pub struct Config {
     pub output: OutputMode,
     #[serde(default)]
     pub server: Vec<ServerConfig>,
+    /// Named groups of servers for bulk start/stop/restart
+    #[serde(default)]
+    pub group: Vec<GroupConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct GroupConfig {
+    pub name: String,
+    /// Server names belonging to this group (must match [[server]] name fields)
+    pub servers: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -51,6 +61,7 @@ impl Config {
             return Ok(Config {
                 output: OutputMode::default(),
                 server: Vec::new(),
+                group: Vec::new(),
             });
         }
         let contents = fs::read_to_string(&path)
