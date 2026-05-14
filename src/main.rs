@@ -1,13 +1,15 @@
 // Hide console window on Windows release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(windows)]
+mod autostart;
 mod config;
 mod errors;
 mod process;
 
 use config::{Config, GroupConfig, OutputMode, ServerConfig};
 use process::{new_shared, SharedProcessManager};
-use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
@@ -20,6 +22,8 @@ const MENU_ID_RESTART_ALL: &str = "restart_all";
 const MENU_ID_RESTART_TERMINALS: &str = "restart_terminals";
 const MENU_ID_RELOAD_CONFIG: &str = "reload_config";
 const MENU_ID_OPEN_CONFIG: &str = "open_config";
+#[cfg(windows)]
+const MENU_ID_AUTOSTART: &str = "autostart";
 const MENU_ID_QUIT: &str = "quit";
 
 fn warn_unmatched_group_servers(groups: &[GroupConfig], servers: &[ServerConfig]) {
@@ -266,6 +270,22 @@ impl App {
 
         menu.append(&PredefinedMenuItem::separator()).ok();
 
+        // Start with Windows (HKCU Run-key toggle). Windows-only — the
+        // registry is the source of truth, so we re-query its state every
+        // time the menu is rebuilt.
+        #[cfg(windows)]
+        {
+            let autostart_item = CheckMenuItem::with_id(
+                MENU_ID_AUTOSTART,
+                "Start with Windows",
+                true,
+                autostart::is_enabled(),
+                None,
+            );
+            menu.append(&autostart_item).ok();
+            menu.append(&PredefinedMenuItem::separator()).ok();
+        }
+
         // Config
         let open_config = MenuItem::with_id(MENU_ID_OPEN_CONFIG, "Open Config", true, None);
         let reload_config = MenuItem::with_id(MENU_ID_RELOAD_CONFIG, "Reload Config", true, None);
@@ -339,6 +359,22 @@ impl App {
                 let _ = std::process::Command::new("cmd")
                     .args(["/c", "start", "", &path_str])
                     .spawn();
+            }
+            #[cfg(windows)]
+            MENU_ID_AUTOSTART => {
+                // Toggle based on the registry's current state, not on the
+                // CheckMenuItem's checked flag — the menu reflects state at
+                // build time, but the user could have changed it externally
+                // (Task Manager > Startup, regedit) between rebuilds.
+                let result = if autostart::is_enabled() {
+                    autostart::disable()
+                } else {
+                    autostart::enable()
+                };
+                if let Err(e) = result {
+                    errors::show_error("Start with Windows", &e);
+                }
+                self.rebuild_tray();
             }
             MENU_ID_RELOAD_CONFIG => {
                 match Config::load() {

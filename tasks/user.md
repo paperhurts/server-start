@@ -1,60 +1,95 @@
-# Testing: New App Icon (Issue #18)
+# Testing: Start with Windows (Issue #19)
 
 ## What Changed
-The hand-drawn pixel "~/" tray icon is replaced with a cyan rounded-square power-button design rendered fresh from an SVG. The executable also gains a proper multi-resolution icon so File Explorer, Alt-Tab, the taskbar, and Task Manager all show the brand mark instead of the default Rust cog.
+The tray menu has a new **"Start with Windows"** checkbox above "Open Config". Toggling it writes/deletes a value at:
 
-Single source of truth: `assets/server-start-icon.svg`. `build.rs` calls `resvg` to render the vector at every needed size — 256×256 for the tray (raw RGBA, embedded via `include_bytes!`) and a multi-resolution `.ico` (16/32/48/64/128/256) embedded as a Win32 resource. Each ICO frame is rasterised directly at its target size, not downsampled from a larger raster, so 16×16 stays legible.
+```
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+  ServerStart = "C:\path\to\server-start.exe"
+```
+
+When set, Windows launches server-start at user logon. Servers stay stopped at launch (same behavior as a normal launch).
+
+The registry is the **single source of truth** — there's no shadow state in the config file. Toggling externally (Task Manager > Startup, regedit) is detected because the menu re-queries the registry every time it's rebuilt.
 
 ## How to Test
 
-Before starting: confirm `target\release\server-start.exe` from any previous session is **not running**. Right-click the tray icon → Quit if it is.
+Before starting: confirm any existing `server-start.exe` is **not running** (right-click tray → Quit).
 
 ### 1. Build
 ```
 cargo build --release
 ```
-Expect: clean build, no warnings. Binary at `target\release\server-start.exe` (~1.3 MB).
+Expect: clean build. Single new runtime dep added: `winreg` (Windows-only).
 
-### 2. Tray icon
+### 2. Verify the toggle exists
 ```
 target\release\server-start.exe
 ```
-- Look at the system tray (notification area, bottom-right)
-- **Expected:** cyan rounded-square icon with a magenta power button glyph
-- If your taskbar is set to hide overflow icons, click the up-arrow to see it
+Right-click the tray icon. Above "Open Config" you should see a checkbox: **☐ Start with Windows**.
 
-### 3. File Explorer icon
-- Navigate to `target\release\` in Explorer
-- Find `server-start.exe`
-- **Expected:** the file shows the new icon as its thumbnail
+### 3. Enable
+- Click "Start with Windows"
+- Right-click the tray again — the box should now be **☑ Start with Windows**
+- In a regular PowerShell, run:
+  ```
+  reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v ServerStart
+  ```
+  Expected output contains:
+  ```
+  ServerStart    REG_SZ    "C:\dev\server-start\target\release\server-start.exe"
+  ```
+  (Path quoted, matches your build location.)
 
-  **If Explorer shows the old icon**, it's a Windows shell cache, not a build problem. Force a refresh with `ie4uinit.exe -show` from any cmd/PowerShell. If still stale, `taskkill /f /im explorer.exe && del /a %localappdata%\IconCache.db && start explorer.exe` (brief screen flicker, nothing destroyed beyond regenerable caches).
+### 4. Verify in Task Manager
+- Open Task Manager → **Startup apps** tab
+- Find an entry whose Name is "ServerStart" with status **Enabled**
+- The publisher will be empty (we don't sign the binary). Disregard.
 
-### 4. Task Manager
-- Open Task Manager → Details tab
-- Find `server-start.exe`
-- **Expected:** the new icon shows in the leftmost column
+### 5. Disable
+- Click "Start with Windows" again in the tray menu
+- Box should be unchecked
+- Run the `reg query` from step 3 again — expected: **"ERROR: ... unable to find the specified registry key or value"**
+- Task Manager Startup apps tab: the entry should be gone
 
-### 5. Right-click → Properties on the exe
-- Right-click `server-start.exe` → Properties
-- The top-left should show the new icon
+### 6. Reboot test (the real one)
+- Re-enable from the tray menu
+- **Quit** server-start from the tray (Quit confirms if servers are running)
+- Sign out and back in, or reboot
+- After logon: server-start should appear in the tray automatically
 
-### 6. Sanity check the tray menu still works
-- Right-click the tray icon → menu opens normally
-- Each existing menu item should still work (start/stop a server, switch a mode, Reload Config)
-- Nothing about menu behavior changed — this PR only touches icon generation
+### 7. External-edit handling
+- With autostart enabled, open Task Manager → Startup apps → right-click "ServerStart" → **Disable**
+- Right-click the tray icon → the checkbox should now show **unchecked** (menu re-queried registry)
+- Click it to re-enable through our UI — it should work cleanly
+
+### 8. Edge case: moved binary
+- Enable autostart
+- Quit server-start
+- Rename `target\release\server-start.exe` to `server-start-2.exe`
+- Run `server-start-2.exe`
+- Click "Start with Windows" twice (off, then on)
+- `reg query ... /v ServerStart` should show the **new** path. `enable()` overwrites — no manual cleanup needed.
+- Rename it back afterwards.
 
 ## What to Look For
-- ✅ Tray icon matches the cyan power-button SVG
-- ✅ Exe icon in File Explorer matches the SVG (after cache clear if needed)
-- ✅ Icon stays crisp at 16×16 (Task Manager Details column) — no downsample mush
-- ✅ No crashes on launch
-- ✅ All existing menu functionality preserved
+- ✅ Checkbox appears in correct position (above "Open Config", with separators)
+- ✅ Registry value writes/deletes correctly
+- ✅ Task Manager Startup tab reflects state
+- ✅ App actually launches at logon after a reboot
+- ✅ External changes (via Task Manager) propagate to the menu on next right-click
+- ✅ No error dialogs unless something genuinely went wrong
 
 ## If Something's Wrong
-- **Tray looks chunky on a high-DPI display:** the tray RGBA is 256×256. tray-icon scales internally; if it's still off, the next iteration would be to load the tray icon from the embedded multi-res `.ico` resource via `Icon::from_resource(1, None)` so Windows picks the perfect-fit frame. ~5 LOC change, no new deps. Not done in this PR.
-- **Build error mentioning rc.exe / windres:** `winresource` needs a resource compiler. On MSVC toolchain it uses `rc.exe` from the Windows SDK; should already be installed if `cargo build` has ever worked here.
-- **Build error parsing the SVG:** the source has to be valid SVG that `resvg`/`usvg` can parse. Pure paths/shapes are fine; embedded raster `<image>` tags or system-font `<text>` would need extra setup.
+- **"Failed to write registry value: Access is denied"**: unlikely under HKCU which is per-user; would indicate a corrupted profile or a Group Policy override. Check `gpresult /h policy.html` for restrictive policies on the Run key.
+- **App doesn't appear at logon**: verify the registry value exists with `reg query`. If yes but it still doesn't launch, the path may have a parsing problem — copy the value and try running it manually from cmd.
+- **Checkbox stays unchecked after clicking**: an error must have triggered (dialog should pop). If no dialog, an `is_enabled()` query is returning false right after a successful `enable()` — would suggest a permission or registry virtualization quirk. Report back.
 
 ## After Confirming It Works
-Already confirmed visually. Branch pushed to origin; PR pending.
+Tell me and I'll:
+1. Push `issue-19-start-with-windows` to origin
+2. Open a PR against `main`
+3. Close issue #19 once merged
+
+## Still Pending (Separate Branches)
+- `issue-18-app-icons` — PNG-pipeline icon work committed locally, awaiting redesign before pushing

@@ -11,9 +11,11 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 dirs = "6"
 
-# Hide the console window on Windows release builds
+# Hide the console window on Windows release builds; winreg for the
+# HKCU Run-key toggle that backs "Start with Windows".
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = ["Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
+winreg = "0.52"
 
 # build.rs renders the tray-icon RGBA blob and the exe .ico from
 # assets/server-start-icon.svg at each target resolution; none of these
