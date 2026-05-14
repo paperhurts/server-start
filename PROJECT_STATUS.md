@@ -3,22 +3,28 @@
 ## Overview
 Windows system tray app for managing dev servers. Single Rust binary, no runtime deps.
 
-## Current State (2026-04-06)
+## Current State (2026-05-14)
 - **v0.1.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.1.0
 - All code review issues resolved (#1-#8)
 - Output modes shipped (#10): terminal, logfile, hidden
 - Mode toggle UI from tray (#14)
 - Smart config reload preserving running servers (#13)
-- Synthwave icon (#11)
-- Server groups (#16): in progress on `issue-16-server-groups` branch
+- Original hand-drawn synthwave icon (#11) — replaced by #18
+- Server groups shipped (#16): PR #17, includes group validation
+- New cyan power-button icon (#18): SVG-rendered at every target size at build time via `resvg`; ships both the tray RGBA and a multi-res Win32 .ico resource for the exe. Ready for merge.
+- "Start with Windows" (#19): tray checkbox toggling HKCU Run-key registration. Implemented on `issue-19-start-with-windows`, pending user reboot test.
 
 ## Architecture
+- `assets/server-start-icon.svg` — single source of truth for both tray and exe icons
+- `build.rs` — at build time: renders SVG via resvg at each target size; writes raw-RGBA blob for tray + multi-res `.ico` embedded as Win32 resource
 - `src/main.rs` — tray icon, menu building, event loop (winit + tray-icon)
+- `src/autostart.rs` — HKCU Run-key toggle for "Start with Windows" (Windows-only)
 - `src/config.rs` — TOML config parsing, OutputMode enum, GroupConfig, log path helpers
 - `src/process.rs` — process spawning (3 modes), kill trees, config reload diffing, group operations
 - `src/errors.rs` — MessageBoxW wrapper for user-visible error dialogs
 
 ## Open Issues
-- #16 — Server groups (in progress)
+- #18 New app icons — ready for merge
+- #19 Start with Windows — implementation done, awaiting reboot test
 - No automated tests
 - No CI pipeline
