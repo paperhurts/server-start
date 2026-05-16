@@ -3,7 +3,7 @@
 ## Overview
 Windows system tray app for managing dev servers. Single Rust binary, no runtime deps.
 
-## Current State (2026-05-14)
+## Current State (2026-05-16)
 - **v0.1.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.1.0
 - All code review issues resolved (#1-#8)
 - Output modes shipped (#10): terminal, logfile, hidden
@@ -11,8 +11,9 @@ Windows system tray app for managing dev servers. Single Rust binary, no runtime
 - Smart config reload preserving running servers (#13)
 - Original hand-drawn synthwave icon (#11) — replaced by #18
 - Server groups shipped (#16): PR #17, includes group validation
-- New cyan power-button icon (#18): SVG-rendered at every target size at build time via `resvg`; ships both the tray RGBA and a multi-res Win32 .ico resource for the exe. Ready for merge.
-- "Start with Windows" (#19): tray checkbox toggling HKCU Run-key registration. Implemented on `issue-19-start-with-windows`, pending user reboot test.
+- **New cyan power-button icon (#18): MERGED via PR #20.** SVG-rendered at every target size at build time via `resvg`; ships both the tray RGBA and a multi-res Win32 .ico resource for the exe.
+- "Start with Windows" (#19): tray checkbox toggling HKCU Run-key registration. Implemented on `issue-19-start-with-windows`, rebased onto post-#18 main, awaiting user reboot test.
+- Workspace cleanup (this PR): `tasks/` and `.claude/` are now gitignored. They were AI-assistant workspace dirs (handoff notes, introspection lessons) that shouldn't have been published. `tasks/` files are untracked but stay on disk for whoever's mid-test on them.
 
 ## Architecture
 - `assets/server-start-icon.svg` — single source of truth for both tray and exe icons
