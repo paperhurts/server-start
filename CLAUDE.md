@@ -47,7 +47,7 @@ Config lives at `%APPDATA%/server-start/config.toml`. First run creates a sample
 - Before marking ANY task complete, ask: "If someone cloned this repo right now, would the docs accurately describe what they'd find?"  If no → update docs first.
 
 ## Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
+- After ANY correction from the user: update `.claude/lessons.md` with the pattern (local-only, gitignored — these are introspection notes for the assistant, not project documentation)
 - Write rules for yourself that prevent the same mistake
 - Review lessons at session start
 - if you refactor, fix bugs, change architecture, etc., then update the readme file
@@ -71,21 +71,20 @@ Config lives at `%APPDATA%/server-start/config.toml`. First run creates a sample
 - Zero context switching required from the user
 
 ## Handoff Protocol
-- When a task is complete and ready for testing: give explicit step-by-step instructions to test it and document them in tasks/user.md
+- When a task is complete and ready for testing: give explicit step-by-step instructions to test it. Write them inline in the conversation, and optionally to `.claude/handoff.md` (local-only, gitignored) if they're long enough that the user will want a separate window
 - Assume the user has been AFK and has zero context about what changed
 - Include: what to run, what to look at, what the expected behavior is
 - If servers need restarting, say so
+- Once a feature merges, the handoff doc is obsolete — delete it from `.claude/`
 
 ## Task Tracking
 - **GitHub Issues** = source of truth for all bugs, features, and backlog items
-- **`tasks/todo.md`** = current session scratchpad only (what we're working on right now)
-- **`tasks/lessons.md`** = persistent learnings from corrections
-- **`PROJECT_STATUS.md`** = high-level state of the project, updated each session
+- **`PROJECT_STATUS.md`** = high-level state of the project, updated each session (committed)
+- **`.claude/`** = AI workspace, gitignored. Use for: ephemeral session todos, handoff drafts, cross-session lessons. NEVER commit anything from this directory. It is not project documentation.
 - When user mentions wanting something: create a GitHub issue immediately
 - Issues should have: clear title, context, and acceptance criteria
 - Label issues: `bug`, `feature`, `enhancement`, `refactor`
-- Figure out where it fits in dependency graph and update `PLAN.md` accordingly
-- NOTHING lives only in conversation. 
+- NOTHING lives only in conversation.
 
 ## Context Management
 - Before starting a new wave or large task: check /context and report remaining capacity
