@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%"
+ height="100%">
+   <!-- Rounded cyan background (leaving the corners transparent to remove the white)
+  -->
+     <!-- codegirl -->
+   <rect x="0" y="0" width="100" height="100" rx="25" fill="#00FFFF" />
+   <!-- Magenta power icon -->
+   <g fill="none" stroke="#FF0080" stroke-width="12" stroke-linecap="round">
+     <!-- Vertical line -->
+     <line x1="50" y1="18" x2="50" y2="48" />
+     <!-- Circular arc -->
+     <path d="M 33 34 A 24 24 0 1 0 67 34" />
+   </g>
+ </svg>
