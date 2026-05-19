@@ -9,6 +9,7 @@ A lightweight Windows system tray app for managing dev servers across multiple p
 - **Mode toggle** — switch any server's output mode on the fly from the tray menu
 - **Server groups** — group related servers (e.g., frontend + backend) and start/stop/restart them together
 - **Bulk actions** — Start All, Stop All, Restart All
+- **Start with Windows** — tray checkbox that registers the app to launch automatically at user logon
 - **Restart Terminals** — kills all PowerShell/pwsh/Windows Terminal sessions and opens a fresh one (asks for confirmation first)
 - **Hot-reload config** — edit your config and reload without restarting the app (running servers with unchanged config stay running)
 - **Open Config** — jump straight to your config file from the tray menu
@@ -28,7 +29,7 @@ Or build manually:
 cargo build --release
 ```
 
-The binary will be at `target/release/server-start.exe`. Drop it in your startup folder or pin it however you like.
+The binary will be at `target/release/server-start.exe`. Drop it wherever you like — once it's running, the tray menu has a **Start with Windows** checkbox that handles launching it at logon for you (see [Start with Windows](#start-with-windows) below).
 
 ## Configuration
 
@@ -115,9 +116,24 @@ Right-click the tray icon to see your servers and controls:
 - **Groups** show running count and have **Start/Stop/Restart Group** actions
 - **Start/Stop/Restart All Servers** for bulk control
 - **Restart Terminals** to kill and reopen all terminal windows (shows confirmation first — this kills *all* open terminals, not just ones managed by the app)
+- **Start with Windows** checkbox toggles whether the app launches at user logon (see below)
 - **Open Config** to edit your server list
 - **Reload Config** to pick up changes without restarting
 - **Quit** asks whether to stop running servers or leave them running
+
+### Start with Windows
+
+Toggling the **Start with Windows** checkbox in the tray menu writes (or removes) a value at:
+
+```
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ServerStart
+```
+
+When set, Windows launches `server-start.exe` automatically at user logon. The value points at the exe you're currently running, so if you move the binary, toggle it off and back on to update the path.
+
+The registry is the single source of truth — there's no shadow state in `config.toml`. If you toggle the entry externally (Task Manager > Startup, or `regedit`), the tray menu reflects the current state the next time you open it.
+
+Servers themselves do not auto-start on launch; the app comes up with everything stopped, same as a normal launch.
 
 > **Note:** Stopping/restarting a server kills its entire process tree. If you're running Claude or another tool inside a terminal that a configured server spawned, it will be killed when that server is stopped.
 
