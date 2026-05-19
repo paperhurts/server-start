@@ -3,17 +3,20 @@
 ## Overview
 Windows system tray app for managing dev servers. Single Rust binary, no runtime deps.
 
-## Current State (2026-05-16)
-- **v0.1.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.1.0
+## Current State (2026-05-19)
+- **v0.2.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.2.0
+- **v0.1.0** — https://github.com/paperhurts/server-start/releases/tag/v0.1.0
 - All code review issues resolved (#1-#8)
 - Output modes shipped (#10): terminal, logfile, hidden
 - Mode toggle UI from tray (#14)
 - Smart config reload preserving running servers (#13)
 - Original hand-drawn synthwave icon (#11) — replaced by #18
-- Server groups shipped (#16): PR #17, includes group validation
-- **New cyan power-button icon (#18): MERGED via PR #20.** SVG-rendered at every target size at build time via `resvg`; ships both the tray RGBA and a multi-res Win32 .ico resource for the exe.
-- **"Start with Windows" (#19): implemented on `issue-19-start-with-windows` (commit `fa21f76`), verified after a real reboot on 2026-05-16.** Tray checkbox toggles HKCU Run-key registration; app launches automatically at logon when enabled. Awaiting merge to main as part of the v0.2.0 release.
-- Workspace cleanup (PR #21): `tasks/` and `.claude/` are gitignored. They were AI-assistant workspace dirs (handoff notes, introspection lessons) that shouldn't have been published. `tasks/` files are untracked but stay on disk for whoever's mid-test on them.
+
+### Shipped in v0.2.0
+- **Server groups (#16, PR #17):** start/stop/restart multiple servers at once; includes group validation.
+- **New cyan power-button icon (#18, PR #20):** single SVG (`assets/server-start-icon.svg`) rendered at every target size at build time via `resvg`; ships both the tray RGBA and a multi-res Win32 `.ico` resource for the exe.
+- **"Start with Windows" (#19, PR #22):** tray checkbox toggles HKCU Run-key registration; app launches automatically at logon when enabled. Registry is the single source of truth — the menu re-queries on rebuild so external toggles (Task Manager > Startup, regedit) are reflected. Verified after a real reboot on 2026-05-16.
+- Workspace cleanup (PR #21): `tasks/` and `.claude/` are gitignored. They were AI-assistant workspace dirs (handoff notes, introspection lessons) that shouldn't have been published.
 
 ## Architecture
 - `assets/server-start-icon.svg` — single source of truth for both tray and exe icons
