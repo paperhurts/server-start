@@ -1,2 +1,8 @@
 /target
+
+# Workspace files for AI assistants (Claude, etc.). These are local-only
+# notes — handoff docs, scratch todos, cross-session lessons. They are NOT
+# project documentation and should never be committed. Project state lives
+# in PROJECT_STATUS.md, README.md, and GitHub Issues.
+/tasks/
 /.claude/
