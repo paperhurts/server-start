@@ -12,7 +12,7 @@ Windows system tray app for managing dev servers. Single Rust binary, no runtime
 - Original hand-drawn synthwave icon (#11) — replaced by #18
 - Server groups shipped (#16): PR #17, includes group validation
 - **New cyan power-button icon (#18): MERGED to main via PR #20.** SVG-rendered at every target size at build time via `resvg`; ships both the tray RGBA and a multi-res Win32 .ico resource for the exe.
-- "Start with Windows" (#19): tray checkbox toggling HKCU Run-key registration. Implemented on `issue-19-start-with-windows` (commit `fa21f76`), **rebased onto post-#18 main**, awaiting user reboot test (in progress via Windows Update restart on 2026-05-16). Branch not yet pushed.
+- **"Start with Windows" (#19): implemented on `issue-19-start-with-windows` (commit `fa21f76`), verified after a real reboot on 2026-05-16.** Tray checkbox toggles HKCU Run-key registration; app launches automatically at logon when enabled. Awaiting merge to main as part of the v0.2.0 release.
 
 ## Architecture
 - `assets/server-start-icon.svg` — single source of truth for both tray and exe icons
@@ -24,7 +24,5 @@ Windows system tray app for managing dev servers. Single Rust binary, no runtime
 - `src/errors.rs` — MessageBoxW wrapper for user-visible error dialogs
 
 ## Open Issues
-- #18 New app icons — ready for merge
-- #19 Start with Windows — implementation done, awaiting reboot test
 - No automated tests
 - No CI pipeline
