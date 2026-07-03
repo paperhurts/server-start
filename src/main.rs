@@ -5,12 +5,13 @@
 mod autostart;
 mod config;
 mod errors;
+mod ports;
 mod process;
 
 use config::{Config, GroupConfig, OutputMode, ServerConfig};
-use process::{new_shared, SharedProcessManager};
+use process::{new_shared, RunState, SharedProcessManager};
 use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
+use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
@@ -20,6 +21,7 @@ const MENU_ID_START_ALL: &str = "start_all";
 const MENU_ID_STOP_ALL: &str = "stop_all";
 const MENU_ID_RESTART_ALL: &str = "restart_all";
 const MENU_ID_RESTART_TERMINALS: &str = "restart_terminals";
+const MENU_ID_REFRESH: &str = "refresh_status";
 const MENU_ID_RELOAD_CONFIG: &str = "reload_config";
 const MENU_ID_OPEN_CONFIG: &str = "open_config";
 #[cfg(windows)]
@@ -81,11 +83,17 @@ fn main() {
 # "hidden"   = hidden, no windows, no output captured
 # output = "terminal"
 
+# ─── Port detection (optional) ───
+# If "port" is set, the tray checks whether anything is LISTENing on that
+# port. A server started outside this app (terminal, AI dev session, ...)
+# shows as [external]; Stop/Restart then act on the detected process.
+
 # ─── Example: typical full-stack setup ───
 # [[server]]
 # name = "Frontend"
 # dir = "C:/dev/my-app"
 # cmd = "npm run dev"
+# port = 5173               # optional: detect externally-started instances
 #
 # [[server]]
 # name = "Backend API"
@@ -136,6 +144,8 @@ struct App {
     _tray: Option<TrayIcon>,
     server_count: usize,
     groups: Vec<GroupConfig>,
+    /// Throttle for hover-triggered status refreshes (see hover_refresh)
+    last_hover_refresh: Option<std::time::Instant>,
 }
 
 impl App {
@@ -146,6 +156,7 @@ impl App {
             _tray: None,
             server_count,
             groups,
+            last_hover_refresh: None,
         }
     }
 
@@ -153,19 +164,29 @@ impl App {
         let menu = Menu::new();
         let mut mgr = self.manager.lock().unwrap();
 
+        // Pick up servers started/stopped outside this app before rendering
+        mgr.refresh_external();
+
         // Individual server controls
         for id in 0..self.server_count {
             let name = mgr.server_name(id).unwrap_or("Unknown").to_string();
-            let running = mgr.is_running(id);
+            let state = mgr.run_state(id);
             let current_mode = mgr.server_output_mode(id).cloned().unwrap_or_default();
-            let status = if running { " [running]" } else { " [stopped]" };
+            let status = match state {
+                RunState::Running => " [running]",
+                RunState::External => " [external]",
+                RunState::Stopped => " [stopped]",
+            };
+            // External servers are stoppable/restartable too: Stop kills the
+            // detected PID's tree; Restart then relaunches under our management
+            let stoppable = state != RunState::Stopped;
 
             let submenu = Submenu::new(format!("{}{}", name, status), true);
 
-            let start_item = MenuItem::with_id(format!("start_{}", id), "Start", !running, None);
-            let stop_item = MenuItem::with_id(format!("stop_{}", id), "Stop", running, None);
+            let start_item = MenuItem::with_id(format!("start_{}", id), "Start", !stoppable, None);
+            let stop_item = MenuItem::with_id(format!("stop_{}", id), "Stop", stoppable, None);
             let restart_item =
-                MenuItem::with_id(format!("restart_{}", id), "Restart", running, None);
+                MenuItem::with_id(format!("restart_{}", id), "Restart", stoppable, None);
 
             submenu.append(&start_item).ok();
             submenu.append(&stop_item).ok();
@@ -221,7 +242,7 @@ impl App {
                 let total = resolved.len();
                 let running = resolved.iter().filter(|name| {
                     mgr.server_id_by_name(name)
-                        .map(|id| mgr.is_running(id))
+                        .map(|id| mgr.run_state(id) != RunState::Stopped)
                         .unwrap_or(false)
                 }).count();
 
@@ -256,6 +277,11 @@ impl App {
         menu.append(&start_all).ok();
         menu.append(&stop_all).ok();
         menu.append(&restart_all).ok();
+
+        // Re-probe ports and redraw statuses on demand — catches servers
+        // started or stopped outside this app
+        let refresh = MenuItem::with_id(MENU_ID_REFRESH, "Refresh Status", true, None);
+        menu.append(&refresh).ok();
 
         menu.append(&PredefinedMenuItem::separator()).ok();
 
@@ -302,6 +328,14 @@ impl App {
 
     fn rebuild_tray(&mut self) {
         let menu = self.build_menu();
+
+        // Swap the menu on the existing tray icon — recreating the whole
+        // TrayIcon makes it flicker in the notification area
+        if let Some(tray) = &self._tray {
+            tray.set_menu(Some(Box::new(menu)));
+            return;
+        }
+
         let icon = create_icon();
 
         match TrayIconBuilder::new()
@@ -319,14 +353,36 @@ impl App {
         }
     }
 
+    /// Refresh statuses when the mouse is over the tray icon, so the menu is
+    /// already up to date when the user right-clicks — the context menu opens
+    /// synchronously on click, so a post-click rebuild would be too late.
+    /// Throttled to once per second; skipped when no server has a port
+    /// configured (nothing external to detect).
+    fn hover_refresh(&mut self) {
+        if !self.manager.lock().unwrap().any_ports_configured() {
+            return;
+        }
+        let now = std::time::Instant::now();
+        if self
+            .last_hover_refresh
+            .is_some_and(|t| now.duration_since(t) < std::time::Duration::from_secs(1))
+        {
+            return;
+        }
+        self.last_hover_refresh = Some(now);
+        self.rebuild_tray();
+    }
+
     fn handle_menu_event(&mut self, event: MenuEvent, event_loop: &ActiveEventLoop) {
         let id = event.id().0.as_str();
 
         match id {
             MENU_ID_QUIT => {
+                // Count external servers too — "stop all" will kill them as well
                 let has_running = {
                     let mut mgr = self.manager.lock().unwrap();
-                    (0..mgr.server_count()).any(|id| mgr.is_running(id))
+                    mgr.refresh_external();
+                    (0..mgr.server_count()).any(|id| mgr.run_state(id) != RunState::Stopped)
                 };
                 if has_running
                     && errors::confirm(
@@ -352,6 +408,10 @@ impl App {
             }
             MENU_ID_RESTART_TERMINALS => {
                 process::restart_terminals();
+            }
+            MENU_ID_REFRESH => {
+                // build_menu() re-probes the port table
+                self.rebuild_tray();
             }
             MENU_ID_OPEN_CONFIG => {
                 let path = Config::config_path();
@@ -504,8 +564,16 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        if let Ok(event) = MenuEvent::receiver().try_recv() {
+        while let Ok(event) = MenuEvent::receiver().try_recv() {
             self.handle_menu_event(event, event_loop);
+        }
+        // Mouse-over-tray events arrive in bursts (Move fires repeatedly), so
+        // drain the channel rather than handling one per wake
+        while let Ok(event) = TrayIconEvent::receiver().try_recv() {
+            match event {
+                TrayIconEvent::Enter { .. } | TrayIconEvent::Move { .. } => self.hover_refresh(),
+                _ => {}
+            }
         }
     }
 }
