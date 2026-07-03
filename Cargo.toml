@@ -12,9 +12,15 @@ toml = "0.8"
 dirs = "6"
 
 # Hide the console window on Windows release builds; winreg for the
-# HKCU Run-key toggle that backs "Start with Windows".
+# HKCU Run-key toggle that backs "Start with Windows"; IpHelper/WinSock
+# for the TCP listener table behind external-server detection.
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.58", features = ["Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.58", features = [
+    "Win32_System_Console",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_Networking_WinSock",
+] }
 winreg = "0.52"
 
 # build.rs renders the tray-icon RGBA blob and the exe .ico from
