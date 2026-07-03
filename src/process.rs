@@ -5,6 +5,17 @@ use std::sync::{Arc, Mutex};
 use crate::config::{Config, OutputMode, ServerConfig};
 use crate::errors;
 
+/// How a server is currently running, as far as we can tell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunState {
+    /// We own a live child process
+    Running,
+    /// No child of ours, but the configured port is listening — started
+    /// outside this app (terminal, AI dev session, ...)
+    External,
+    Stopped,
+}
+
 pub struct ProcessManager {
     processes: Vec<ManagedProcess>,
     global_output: OutputMode,
@@ -13,6 +24,9 @@ pub struct ProcessManager {
 struct ManagedProcess {
     config: ServerConfig,
     child: Option<Child>,
+    /// PID owning the configured port when it's listening but we have no
+    /// child — i.e. the server was started externally. Set by refresh_external.
+    external_pid: Option<u32>,
 }
 
 impl ProcessManager {
@@ -22,6 +36,7 @@ impl ProcessManager {
             .map(|config| ManagedProcess {
                 config,
                 child: None,
+                external_pid: None,
             })
             .collect();
         ProcessManager {
@@ -38,6 +53,12 @@ impl ProcessManager {
 
         if proc.child.is_some() {
             return Err(format!("'{}' is already running", proc.config.name));
+        }
+        if let Some(pid) = proc.external_pid {
+            return Err(format!(
+                "'{}' is already running externally (PID {})",
+                proc.config.name, pid
+            ));
         }
 
         let mode = proc.config.effective_output(&self.global_output);
@@ -57,6 +78,16 @@ impl ProcessManager {
             // Wait for the process to actually exit (up to ~2 seconds)
             // to avoid port-already-in-use races on restart
             wait_for_exit(&mut child);
+        } else if let Some(pid) = proc.external_pid.take() {
+            // Externally-started server detected via its port. Never taskkill
+            // the Idle/System pseudo-PIDs.
+            if pid > 4 {
+                kill_process_tree(pid);
+                // No Child handle to wait on — poll the port instead
+                if let Some(port) = proc.config.port {
+                    wait_for_port_release(port);
+                }
+            }
         }
         Ok(())
     }
@@ -85,6 +116,42 @@ impl ProcessManager {
         } else {
             false
         }
+    }
+
+    /// Probe the TCP listener table once and update external detection on
+    /// every server. A server we own a live child for is never marked external.
+    pub fn refresh_external(&mut self) {
+        let table = crate::ports::listening_ports();
+        self.refresh_external_with(&table);
+    }
+
+    /// Testable core of refresh_external: takes a port → PID snapshot.
+    pub fn refresh_external_with(&mut self, table: &std::collections::HashMap<u16, u32>) {
+        for id in 0..self.processes.len() {
+            let child_alive = self.is_running(id); // also clears stale child handles
+            let proc = &mut self.processes[id];
+            proc.external_pid = match (child_alive, proc.config.port) {
+                (false, Some(port)) => table.get(&port).copied(),
+                _ => None,
+            };
+        }
+    }
+
+    /// Current run state, combining our child handle with external detection.
+    /// External state is as of the last refresh_external call.
+    pub fn run_state(&mut self, id: usize) -> RunState {
+        if self.is_running(id) {
+            RunState::Running
+        } else if self.processes.get(id).and_then(|p| p.external_pid).is_some() {
+            RunState::External
+        } else {
+            RunState::Stopped
+        }
+    }
+
+    /// Whether any server has a port configured (external detection possible).
+    pub fn any_ports_configured(&self) -> bool {
+        self.processes.iter().any(|p| p.config.port.is_some())
     }
 
     /// Returns the effective output mode for a server
@@ -208,14 +275,19 @@ impl ProcessManager {
 
             if let Some(idx) = existing_idx {
                 let old = &mut self.processes[idx];
-                if old.config == new_config {
+                // Compare only spawn-relevant fields: a changed `port` must not
+                // restart a running server (it only affects status detection)
+                if old.config.spawn_fields_eq(&new_config) {
                     // Config unchanged — transfer the child handle
                     new_processes.push(ManagedProcess {
                         config: new_config,
                         child: old.child.take(),
+                        external_pid: old.external_pid.take(),
                     });
                 } else {
-                    // Config changed — stop the old one
+                    // Config changed — stop the old one. External processes are
+                    // left alone (we didn't spawn them); detection repopulates
+                    // on the next refresh.
                     if let Some(mut child) = old.child.take() {
                         kill_process_tree(child.id());
                         wait_for_exit(&mut child);
@@ -223,6 +295,7 @@ impl ProcessManager {
                     new_processes.push(ManagedProcess {
                         config: new_config,
                         child: None,
+                        external_pid: None,
                     });
                 }
             } else {
@@ -230,6 +303,7 @@ impl ProcessManager {
                 new_processes.push(ManagedProcess {
                     config: new_config,
                     child: None,
+                    external_pid: None,
                 });
             }
         }
@@ -366,6 +440,82 @@ fn wait_for_exit(child: &mut Child) {
             Ok(None) => std::thread::sleep(std::time::Duration::from_millis(100)),
             Err(_) => return,
         }
+    }
+}
+
+/// Wait up to ~2 seconds for a port to leave the LISTEN table after killing
+/// an external process — there's no Child handle to wait on, so poll the
+/// port to avoid port-already-in-use races on restart.
+fn wait_for_port_release(port: u16) {
+    for _ in 0..20 {
+        if !crate::ports::port_listening(port) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn test_server(name: &str, port: Option<u16>) -> ServerConfig {
+        ServerConfig {
+            name: name.to_string(),
+            dir: "C:/x".to_string(),
+            cmd: "echo test".to_string(),
+            env: HashMap::new(),
+            output: None,
+            port,
+        }
+    }
+
+    #[test]
+    fn detects_external_server_from_port_table() {
+        let mut mgr = ProcessManager::new(
+            vec![test_server("web", Some(43210))],
+            OutputMode::default(),
+        );
+        assert_eq!(mgr.run_state(0), RunState::Stopped);
+
+        mgr.refresh_external_with(&HashMap::from([(43210, 999)]));
+        assert_eq!(mgr.run_state(0), RunState::External);
+
+        // Port gone → back to stopped
+        mgr.refresh_external_with(&HashMap::new());
+        assert_eq!(mgr.run_state(0), RunState::Stopped);
+    }
+
+    #[test]
+    fn server_without_port_never_external() {
+        let mut mgr =
+            ProcessManager::new(vec![test_server("web", None)], OutputMode::default());
+        mgr.refresh_external_with(&HashMap::from([(43210, 999)]));
+        assert_eq!(mgr.run_state(0), RunState::Stopped);
+    }
+
+    #[test]
+    fn start_refuses_when_running_externally() {
+        let mut mgr = ProcessManager::new(
+            vec![test_server("web", Some(43210))],
+            OutputMode::default(),
+        );
+        mgr.refresh_external_with(&HashMap::from([(43210, 999)]));
+        let err = mgr.start(0).unwrap_err();
+        assert!(err.contains("externally"), "unexpected error: {}", err);
+        assert!(err.contains("999"), "unexpected error: {}", err);
+    }
+
+    #[test]
+    fn any_ports_configured_reflects_config() {
+        let mgr = ProcessManager::new(vec![test_server("a", None)], OutputMode::default());
+        assert!(!mgr.any_ports_configured());
+        let mgr = ProcessManager::new(
+            vec![test_server("a", None), test_server("b", Some(80))],
+            OutputMode::default(),
+        );
+        assert!(mgr.any_ports_configured());
     }
 }
 
