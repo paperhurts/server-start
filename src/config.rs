@@ -45,12 +45,26 @@ pub struct ServerConfig {
     pub env: HashMap<String, String>,
     /// Per-server output mode override (uses global default if not set)
     pub output: Option<OutputMode>,
+    /// Optional: TCP port the server listens on. Enables detection of
+    /// externally-started instances (shown as [external] in the tray).
+    pub port: Option<u16>,
 }
 
 impl ServerConfig {
     /// Returns the effective output mode, preferring per-server override over global default.
     pub fn effective_output<'a>(&'a self, global: &'a OutputMode) -> &'a OutputMode {
         self.output.as_ref().unwrap_or(global)
+    }
+
+    /// True when the fields that affect process spawning are equal.
+    /// `port` is intentionally excluded: it only affects status detection,
+    /// so changing it must not restart a running server on config reload.
+    pub fn spawn_fields_eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.dir == other.dir
+            && self.cmd == other.cmd
+            && self.env == other.env
+            && self.output == other.output
     }
 }
 
@@ -103,5 +117,75 @@ impl Config {
             .collect();
         path.push(format!("{}.log", safe_name));
         path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_server_with_port() {
+        let cfg: Config = toml::from_str(
+            r#"
+            [[server]]
+            name = "web"
+            dir = "C:/x"
+            cmd = "npm run dev"
+            port = 5173
+        "#,
+        )
+        .unwrap();
+        assert_eq!(cfg.server[0].port, Some(5173));
+    }
+
+    #[test]
+    fn port_is_optional() {
+        let cfg: Config = toml::from_str(
+            r#"
+            [[server]]
+            name = "web"
+            dir = "C:/x"
+            cmd = "npm run dev"
+        "#,
+        )
+        .unwrap();
+        assert_eq!(cfg.server[0].port, None);
+    }
+
+    #[test]
+    fn rejects_out_of_range_port() {
+        let result: Result<Config, _> = toml::from_str(
+            r#"
+            [[server]]
+            name = "web"
+            dir = "C:/x"
+            cmd = "npm run dev"
+            port = 70000
+        "#,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn spawn_fields_eq_ignores_port() {
+        let cfg: Config = toml::from_str(
+            r#"
+            [[server]]
+            name = "web"
+            dir = "C:/x"
+            cmd = "npm run dev"
+            port = 5173
+
+            [[server]]
+            name = "web"
+            dir = "C:/x"
+            cmd = "npm run dev"
+            port = 8080
+        "#,
+        )
+        .unwrap();
+        assert!(cfg.server[0].spawn_fields_eq(&cfg.server[1]));
+        assert_ne!(cfg.server[0], cfg.server[1]);
     }
 }

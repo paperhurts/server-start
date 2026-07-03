@@ -11,6 +11,7 @@ A lightweight Windows system tray app for managing dev servers across multiple p
 - **Bulk actions** — Start All, Stop All, Restart All
 - **Start with Windows** — tray checkbox that registers the app to launch automatically at user logon
 - **Restart Terminals** — kills all PowerShell/pwsh/Windows Terminal sessions and opens a fresh one (asks for confirmation first)
+- **External detection** — servers started outside the app (a terminal, an AI dev session) show as `[external]` when a `port` is configured; Stop/Restart work on them
 - **Hot-reload config** — edit your config and reload without restarting the app (running servers with unchanged config stay running)
 - **Open Config** — jump straight to your config file from the tray menu
 - **Error dialogs** — config errors and server failures show Windows message boxes (no silent failures)
@@ -49,6 +50,7 @@ Add your dev servers:
 name = "Frontend"
 dir = "C:/dev/my-app"
 cmd = "npm run dev"
+port = 5173          # optional: detect externally-started instances
 
 [[server]]
 name = "Backend API"
@@ -72,6 +74,7 @@ Each `[[server]]` block defines one process:
 | `cmd`    | yes      | The command to run                                |
 | `env`    | no       | Extra environment variables to set                |
 | `output` | no       | `"terminal"`, `"logfile"`, or `"hidden"` (overrides global) |
+| `port`   | no       | TCP port the server listens on; enables `[external]` detection of instances started outside the app |
 
 ### Groups
 
@@ -112,7 +115,8 @@ Right-click the tray icon to see your servers and controls:
 
 - Each server has a submenu with **Start**, **Stop**, **Restart**, and **Mode** (Terminal/Logfile/Hidden)
 - Logfile-mode servers also have a **View Log** option
-- Status shows as `[running]` or `[stopped]` (auto-detects crashes)
+- Status shows as `[running]`, `[external]`, or `[stopped]` (auto-detects crashes)
+- **Refresh Status** re-probes everything on demand; statuses also refresh automatically when you hover the tray icon, so the menu is current when it opens
 - **Groups** show running count and have **Start/Stop/Restart Group** actions
 - **Start/Stop/Restart All Servers** for bulk control
 - **Restart Terminals** to kill and reopen all terminal windows (shows confirmation first — this kills *all* open terminals, not just ones managed by the app)
@@ -136,6 +140,12 @@ The registry is the single source of truth — there's no shadow state in `confi
 Servers themselves do not auto-start on launch; the app comes up with everything stopped, same as a normal launch.
 
 > **Note:** Stopping/restarting a server kills its entire process tree. If you're running Claude or another tool inside a terminal that a configured server spawned, it will be killed when that server is stopped.
+
+### External detection
+
+If a `[[server]]` has a `port`, the app checks Windows' TCP listener table for it. When something is listening on that port but wasn't started by the app, the server shows as `[external]` — typical when a dev server was launched from a terminal or by an AI coding session. **Stop** kills the detected process's tree (its parent shell survives), and **Restart** relaunches the server under the app's own management.
+
+> **Caveat:** detection is purely port-based. If an unrelated program happens to listen on a configured port, it will show as `[external]` — and **Stop will kill that program's process tree**. Pick ports that only your dev servers use.
 
 ## Built With
 

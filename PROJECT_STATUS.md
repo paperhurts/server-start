@@ -3,7 +3,8 @@
 ## Overview
 Windows system tray app for managing dev servers. Single Rust binary, no runtime deps.
 
-## Current State (2026-05-19)
+## Current State (2026-07-03)
+- **External server detection (#24):** optional `port` field per `[[server]]`; servers started outside the app (terminal, AI dev session) show as `[external]` via the Windows TCP listener table (`GetExtendedTcpTable`, IPv4+IPv6). Stop kills the detected PID tree, Restart adopts the server under app management, Start refuses when the port is externally occupied. New "Refresh Status" menu item + auto-refresh on tray-icon hover (menu swapped in place via `set_menu`, no icon flicker). Config reload ignores port-only changes. First unit tests added (config parsing, port probe, detection logic) — `cargo test`. Manually verified against the reader-app prod frontend on 2026-07-03.
 - **v0.2.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.2.0
 - **v0.1.0** — https://github.com/paperhurts/server-start/releases/tag/v0.1.0
 - All code review issues resolved (#1-#8)
@@ -24,9 +25,10 @@ Windows system tray app for managing dev servers. Single Rust binary, no runtime
 - `src/main.rs` — tray icon, menu building, event loop (winit + tray-icon)
 - `src/autostart.rs` — HKCU Run-key toggle for "Start with Windows" (Windows-only)
 - `src/config.rs` — TOML config parsing, OutputMode enum, GroupConfig, log path helpers
-- `src/process.rs` — process spawning (3 modes), kill trees, config reload diffing, group operations
+- `src/ports.rs` — Windows TCP listener table probe (port → owning PID) for external-server detection
+- `src/process.rs` — process spawning (3 modes), kill trees, RunState (running/external/stopped), config reload diffing, group operations
 - `src/errors.rs` — MessageBoxW wrapper for user-visible error dialogs
 
 ## Open Issues
-- No automated tests
+- Test coverage is minimal (unit tests exist for config parsing, port probe, and external detection; nothing for spawning/menu logic)
 - No CI pipeline
