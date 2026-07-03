@@ -4,9 +4,13 @@
 Windows system tray app for managing dev servers. Single Rust binary, no runtime deps.
 
 ## Current State (2026-07-03)
-- **External server detection (#24):** optional `port` field per `[[server]]`; servers started outside the app (terminal, AI dev session) show as `[external]` via the Windows TCP listener table (`GetExtendedTcpTable`, IPv4+IPv6). Stop kills the detected PID tree, Restart adopts the server under app management, Start refuses when the port is externally occupied. New "Refresh Status" menu item + auto-refresh on tray-icon hover (menu swapped in place via `set_menu`, no icon flicker). Config reload ignores port-only changes. First unit tests added (config parsing, port probe, detection logic) — `cargo test`. Manually verified against the reader-app prod frontend on 2026-07-03.
-- **v0.2.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.2.0
+- **v0.3.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.3.0
+- **v0.2.0** — https://github.com/paperhurts/server-start/releases/tag/v0.2.0
 - **v0.1.0** — https://github.com/paperhurts/server-start/releases/tag/v0.1.0
+
+### Shipped in v0.3.0
+- **External server detection (#24, PR #25):** optional `port` field per `[[server]]`; servers started outside the app (terminal, AI dev session) show as `[external]` via the Windows TCP listener table (`GetExtendedTcpTable`, IPv4+IPv6). Stop kills the detected PID tree, Restart adopts the server under app management, Start refuses when the port is externally occupied. New "Refresh Status" menu item + auto-refresh on tray-icon hover (menu swapped in place via `set_menu`, no icon flicker). Config reload ignores port-only changes. First unit tests added (config parsing, port probe, detection logic) — `cargo test`. Manually verified against the reader-app prod frontend on 2026-07-03.
+- Follow-up filed: #26 — show owning process name in the `[external]` label.
 - All code review issues resolved (#1-#8)
 - Output modes shipped (#10): terminal, logfile, hidden
 - Mode toggle UI from tray (#14)
