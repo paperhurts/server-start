@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>server-start — Privacy Policy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #0c0a14;
+    color: #e8e4f0;
+    font: 400 19px/1.65 'Crimson Pro', serif;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(180,74,255,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(0,229,255,0.05) 0%, transparent 60%);
+    min-height: 100vh;
+    position: relative;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(180,74,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(180,74,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+  .wrap { position: relative; max-width: 780px; margin: 0 auto; padding: 0 24px 80px; }
+  .nav { display: flex; justify-content: space-between; align-items: center; padding: 28px 0; }
+  .wordmark { font: 700 20px/1 'Crimson Pro', serif; letter-spacing: -0.02em; color: #e8e4f0; text-decoration: none; }
+  .wordmark span { color: #00e5ff; text-shadow: 0 0 20px rgba(0,229,255,0.4); }
+  .navlinks { display: flex; gap: 28px; font: 500 15px/1 'Crimson Pro', serif; }
+  .navlinks a { color: #8a839b; text-decoration: none; }
+  .navlinks a:hover { color: #00e5ff; }
+  .kicker { font: 500 14px/1 'JetBrains Mono', monospace; color: #ff006e; text-transform: uppercase; letter-spacing: 0.12em; margin: 70px 0 20px; }
+  h1 { font: 600 52px/1.08 'Crimson Pro', serif; letter-spacing: -0.02em; margin: 0 0 10px; text-wrap: pretty; }
+  h1 em { font-style: normal; color: #00e5ff; text-shadow: 0 0 40px rgba(0,229,255,0.35); }
+  .updated { font: 400 14px/1 'JetBrains Mono', monospace; color: #8a839b; margin-bottom: 44px; }
+  h2 { font: 600 30px/1.2 'Crimson Pro', serif; letter-spacing: -0.01em; margin: 48px 0 14px; color: #e8e4f0; }
+  p { margin: 0 0 16px; color: #b8b2c6; }
+  strong { color: #e8e4f0; font-weight: 600; }
+  a { color: #00e5ff; text-decoration: none; }
+  a:hover { opacity: 0.8; }
+  ul { margin: 0 0 16px; padding-left: 24px; color: #b8b2c6; }
+  li { margin-bottom: 8px; }
+  li::marker { color: #b44aff; }
+  code { font: 500 0.78em/1 'JetBrains Mono', monospace; background: #13111d; border: 1px solid rgba(180,74,255,0.2); border-radius: 6px; padding: 3px 7px; color: #00e5ff; white-space: nowrap; }
+  .summary { background: #13111d; border: 1px solid rgba(0,229,255,0.25); border-radius: 18px; padding: 26px 30px; margin: 0 0 8px; box-shadow: 0 0 30px rgba(0,229,255,0.06); }
+  .summary p { margin: 0; font-size: 21px; color: #e8e4f0; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 16px; }
+  th { font: 500 13px/1.4 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; color: #b44aff; text-align: left; padding: 10px 14px; border-bottom: 1px solid rgba(180,74,255,0.3); }
+  td { padding: 12px 14px; border-bottom: 1px solid rgba(180,74,255,0.12); color: #b8b2c6; vertical-align: top; }
+  .footer { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: 80px; padding-top: 24px; border-top: 1px solid rgba(180,74,255,0.15); font: 400 13px/1 'JetBrains Mono', monospace; color: #8a839b; }
+  .footer a { color: #8a839b; }
+  .footer a:hover { color: #00e5ff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav">
+    <a class="wordmark" href="https://paperhurts.dev">paperhurts<span>*</span></a>
+    <div class="navlinks">
+      <a href="https://paperhurts.github.io/server-start/">Project page</a>
+      <a href="https://github.com/paperhurts/server-start">Source</a>
+    </div>
+  </div>
+  <div class="kicker">Privacy policy</div>
+  <h1>server-start <em>collects nothing.</em></h1>
+  <div class="updated">Effective date: 2026-07-13</div>
+
+  <div class="summary"><p><strong>server-start does not collect, transmit, or share any data. Ever.</strong> No telemetry, no analytics, no crash reporting, no update checks, and no network communication of any kind.</p></div>
+
+  <p style="margin-top:24px">server-start is a Windows system tray application for starting, stopping, and restarting local development servers. It is developed as an open-source project; the complete source code is available in the repository. It contains no networking libraries capable of making outbound connections — you can verify this in <code>Cargo.toml</code> and the source code.</p>
+
+  <h2>Data the application stores locally</h2>
+  <p>All data stays on your machine and is created only as part of the application's core function:</p>
+  <ul>
+    <li><strong>Configuration file</strong> — <code>%APPDATA%\server-start\config.toml</code>, written by you, containing the commands, working directories, and ports of the dev servers you choose to manage.</li>
+    <li><strong>Log files (optional)</strong> — when a server's output mode is set to <code>logfile</code>, that server's console output is written to a local log file so you can read it. You control this per server in the config.</li>
+    <li><strong>Registry entry (optional)</strong> — enabling "Start with Windows" writes a single value to your user registry Run key (<code>HKEY_CURRENT_USER\...\Windows\CurrentVersion\Run</code>) so Windows launches the app at logon. Disabling the option removes it.</li>
+  </ul>
+  <p>None of this data leaves your computer, and none of it is accessible to the project maintainers.</p>
+
+  <h2>Local port inspection</h2>
+  <p>To detect dev servers started outside the app, server-start reads the Windows TCP listener table (a local operating-system API) to check which processes are listening on the ports named in <em>your</em> configuration. This is a read-only, local lookup. Nothing is connected to, probed over the network, or transmitted anywhere.</p>
+
+  <h2>Third parties</h2>
+  <p>server-start integrates no third-party services. There are no accounts, no sign-ins, no ads, and no data processors.</p>
+
+  <h2>Children's privacy</h2>
+  <p>The application collects no data from anyone, including children.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If a future version ever changes any of the above (for example, adding an optional update check), this document will be updated in the same release, and the change will be listed in the release notes. The version history of this file is publicly auditable in the repository's git history.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy can be raised by <a href="https://github.com/paperhurts/server-start/issues">opening an issue</a> on the repository.</p>
+
+  <div class="footer">
+    <span>© 2026 paperhurts LLC</span>
+    <a href="https://github.com/paperhurts/server-start/issues">Questions? Open an issue ↗</a>
+  </div>
+</div>
+</body>
+</html>
