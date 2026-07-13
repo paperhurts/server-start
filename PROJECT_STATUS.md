@@ -3,7 +3,8 @@
 ## Overview
 Windows system tray app for managing dev servers. Single Rust binary, no runtime deps.
 
-## Current State (2026-07-03)
+## Current State (2026-07-13)
+- **Privacy policy (#27):** `PRIVACY.md` in repo root (no data collection, local-only storage), linked from README. GitHub Pages enabled on `main` (root, default Jekyll) so it's web-hosted at https://paperhurts.github.io/server-start/PRIVACY.html for store listings.
 - **v0.3.0 released** — https://github.com/paperhurts/server-start/releases/tag/v0.3.0
 - **v0.2.0** — https://github.com/paperhurts/server-start/releases/tag/v0.2.0
 - **v0.1.0** — https://github.com/paperhurts/server-start/releases/tag/v0.1.0

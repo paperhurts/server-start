@@ -147,6 +147,10 @@ If a `[[server]]` has a `port`, the app checks Windows' TCP listener table for i
 
 > **Caveat:** detection is purely port-based. If an unrelated program happens to listen on a configured port, it will show as `[external]` — and **Stop will kill that program's process tree**. Pick ports that only your dev servers use.
 
+## Privacy
+
+server-start collects no data and makes no network connections — everything stays on your machine. See [PRIVACY.md](PRIVACY.md) for details, also hosted at [paperhurts.github.io/server-start/PRIVACY.html](https://paperhurts.github.io/server-start/PRIVACY.html).
+
 ## Built With
 
 Rust, using [tray-icon](https://crates.io/crates/tray-icon) and [winit](https://crates.io/crates/winit).
