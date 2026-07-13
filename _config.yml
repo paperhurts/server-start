@@ -1,0 +1,6 @@
+# GitHub Pages (Jekyll) config. PRIVACY.html is the hand-styled page served
+# at /PRIVACY.html; exclude the markdown source so Jekyll's optional-front-matter
+# rendering doesn't produce a second page at the same output path.
+# Keep PRIVACY.md and PRIVACY.html in sync — the .md is the repo-readable copy.
+exclude:
+  - PRIVACY.md
