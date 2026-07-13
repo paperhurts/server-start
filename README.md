@@ -149,7 +149,7 @@ If a `[[server]]` has a `port`, the app checks Windows' TCP listener table for i
 
 ## Privacy
 
-server-start collects no data and makes no network connections — everything stays on your machine. See [PRIVACY.md](PRIVACY.md) for details.
+server-start collects no data and makes no network connections — everything stays on your machine. See [PRIVACY.md](PRIVACY.md) for details, also hosted at [paperhurts.github.io/server-start/PRIVACY.html](https://paperhurts.github.io/server-start/PRIVACY.html).
 
 ## Built With
 
